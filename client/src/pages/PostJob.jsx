@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Briefcase, AlertCircle, Clock, Zap, Sparkles } from 'lucide-react';
+import { Briefcase, AlertCircle, Clock, Zap, Terminal, Target, ArrowRight } from 'lucide-react';
+import AIAssistant from '../components/jobs/AIAssistant';
+
 const categories = [
   'Technology & IT', 'Creative & Design', 'Writing & Translation',
   'Marketing & Sales', 'Business & Operations', 'Lifestyle & Health',
@@ -10,7 +12,6 @@ const categories = [
 export default function PostJob() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [genLoading, setGenLoading] = useState(false);
   const [error, setError] = useState('');
   
   const [formData, setFormData] = useState({
@@ -33,41 +34,18 @@ export default function PostJob() {
     }));
   };
 
-  const handleGenerateAI = async () => {
-    if (!formData.title) {
-       setError('Please enter a project title first so the AI knows what to generate!');
-       return;
-    }
-
-    setGenLoading(true);
-    setError('');
-    try {
-      const token = localStorage.getItem('microgig_token');
-      const res = await fetch('/api/jobs/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ title: formData.title })
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        setFormData(prev => ({
-          ...prev,
-          description: data.description || prev.description,
-          skills: data.skills ? data.skills.join(', ') : prev.skills,
-          duration: data.duration || prev.duration
-        }));
-      } else {
-        setError(data.message || 'AI generation failed.');
-      }
-    } catch (err) {
-      setError('Network error during AI generation.');
-    } finally {
-      setGenLoading(false);
-    }
+  const onDraftGenerated = (data) => {
+    setFormData({
+      title: data.title || '',
+      description: data.description || '',
+      category: data.category || categories[0],
+      skills: data.skills ? data.skills.join(', ') : '',
+      budgetMin: data.budgetMin || '',
+      budgetMax: data.budgetMax || '',
+      duration: data.duration || '',
+      isUrgent: false,
+      isInstantHire: false
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -77,9 +55,7 @@ export default function PostJob() {
 
     try {
       const token = localStorage.getItem('microgig_token');
-      if (!token) {
-        throw new Error('You must be logged in to post a gig.');
-      }
+      if (!token) throw new Error('AUTH_REQUIRED: SESSION_INVALID');
 
       const payload = {
         title: formData.title,
@@ -106,10 +82,10 @@ export default function PostJob() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.message || 'Failed to post gig.');
+        throw new Error(data.message || 'DEPLOYMENT_FAILED');
       }
 
-      navigate('/dashboard'); // Go back to employer dashboard
+      navigate('/dashboard');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -118,130 +94,146 @@ export default function PostJob() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] pt-32 pb-20">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-white da-grid-bg pt-32 pb-32">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         
-        <div className="mb-8">
-          <Link to="/dashboard" className="text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-daInfo-dark transition-colors mb-4 inline-block">
-             ← BACK TO DASHBOARD
+        {/* Header */}
+        <div className="mb-12">
+          <Link to="/dashboard" className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 hover:text-black transition-colors mb-6 group">
+             <div className="w-4 h-4 border border-gray-300 flex items-center justify-center group-hover:border-black">←</div>
+             RETURN_TO_COMMAND_CENTER
           </Link>
-          <h1 className="text-4xl font-bold text-daInfo-dark tracking-tight leading-none mb-2">DEPLOY A NEW GIG</h1>
-          <p className="text-gray-500 text-lg">Define the scope, set the budget, and source top talent instantly.</p>
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-6xl font-black text-black tracking-tighter leading-[0.85] mb-4">
+                DEPLOY <br/> NEW_GIG
+              </h1>
+              <div className="flex items-center gap-4">
+                <span className="flex items-center gap-1.5 px-2 py-0.5 bg-black text-white text-[10px] font-black uppercase tracking-widest">
+                  <Terminal className="w-3 h-3" /> System_Active
+                </span>
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+                  Ready for project architecture.
+                </span>
+              </div>
+            </div>
+            <div className="hidden md:block w-24 h-24 border-4 border-black da-shadow-black flex items-center justify-center bg-yellow-400">
+               <Zap className="w-10 h-10 text-black" />
+            </div>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white border border-gray-200 shadow-[8px_8px_0px_0px_rgba(10,10,10,1)] p-8 sm:p-12 space-y-8">
+        {/* AI Assistant Hook */}
+        <AIAssistant onDraftGenerated={onDraftGenerated} />
+
+        {/* Main Deployment Form */}
+        <form onSubmit={handleSubmit} className="bg-white border-4 border-black shadow-[16px_16px_0px_0px_rgba(0,0,0,1)] p-8 sm:p-12 space-y-12">
           
           {error && (
-            <div className="bg-red-50 border-l-4 border-red-500 p-4 flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-red-700 font-medium">{error}</p>
+            <div className="bg-red-50 border-4 border-red-500 p-6 flex items-start gap-4">
+              <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0" />
+              <div>
+                <h4 className="font-black text-red-700 text-xs uppercase tracking-widest mb-1">Critical_Error: [SYSTEM_FAILURE]</h4>
+                <p className="text-sm text-red-700 font-bold">{error}</p>
+              </div>
             </div>
           )}
 
-          {/* Core Info */}
-          <section className="space-y-6">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 border-b border-gray-200 pb-2">Core Parameters</h3>
+          {/* Core Parameters */}
+          <section className="space-y-8">
+            <div className="flex items-center gap-4 mb-4">
+               <div className="h-0.5 bg-black flex-1" />
+               <h3 className="text-xs font-black uppercase tracking-[0.3em] text-black">CORE_PARAMETERS</h3>
+               <div className="h-0.5 bg-black flex-1" />
+            </div>
             
-            <div className="space-y-2">
-              <label className="block text-xs font-bold text-daInfo-dark uppercase tracking-widest flex justify-between">
-                Project Title
-                {genLoading && <span className="text-daInfo-blue animate-pulse">AI is thinking...</span>}
+            <div className="space-y-3">
+              <label className="block text-xs font-black text-black uppercase tracking-widest">
+                [01] PROJECT_TITLE
               </label>
-              <div className="relative">
-                <input 
-                  type="text" 
-                  name="title" 
-                  required 
-                  value={formData.title} 
-                  onChange={handleChange} 
-                  placeholder="e.g. Graphic Logo Design or Social Media Strategy" 
-                  className="w-full p-4 pr-14 border border-gray-200 bg-gray-50 focus:bg-white focus:border-daInfo-dark outline-none font-medium text-daInfo-dark" 
-                />
-                <button
-                  type="button"
-                  onClick={handleGenerateAI}
-                  disabled={genLoading || !formData.title}
-                  title="Generate with AI"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-daInfo-dark text-white hover:bg-black transition-colors disabled:opacity-30 disabled:cursor-not-allowed group"
-                >
-                  <Sparkles className={`w-5 h-5 ${genLoading ? 'animate-spin' : 'group-hover:scale-110 transition-transform'}`} />
-                </button>
-              </div>
+              <input 
+                type="text" 
+                name="title" 
+                required 
+                value={formData.title} 
+                onChange={handleChange} 
+                placeholder="ENTER HIGH-SIGNAL IDENTIFIER" 
+                className="w-full p-6 border-4 border-black bg-gray-50 focus:bg-white focus:da-shadow-black transition-all outline-none font-black text-xl text-black placeholder:text-gray-300" 
+              />
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-daInfo-dark uppercase tracking-widest">Domain</label>
-                <select name="category" required value={formData.category} onChange={handleChange} className="w-full p-4 border border-gray-200 bg-gray-50 focus:bg-white focus:border-daInfo-dark outline-none font-bold text-sm uppercase tracking-widest text-daInfo-dark cursor-pointer appearance-none">
+            <div className="grid sm:grid-cols-2 gap-8">
+              <div className="space-y-3">
+                <label className="block text-xs font-black text-black uppercase tracking-widest">[02] DISCIPLINE</label>
+                <select name="category" required value={formData.category} onChange={handleChange} className="w-full p-5 border-4 border-black bg-gray-50 focus:bg-white outline-none font-black text-xs uppercase tracking-widest text-black cursor-pointer appearance-none">
                   {categories.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-daInfo-dark uppercase tracking-widest">Required Skills</label>
-                <input type="text" name="skills" required value={formData.skills} onChange={handleChange} placeholder="e.g. Branding, SEO, Accounting (comma separated)" className="w-full p-4 border border-gray-200 bg-gray-50 focus:bg-white focus:border-daInfo-dark outline-none font-medium text-daInfo-dark" />
+              <div className="space-y-3">
+                <label className="block text-xs font-black text-black uppercase tracking-widest">[03] REQ_SKILL_ARRAY</label>
+                <input type="text" name="skills" required value={formData.skills} onChange={handleChange} placeholder="COMMA, SEPARATED, VALUES" className="w-full p-5 border-4 border-black bg-gray-50 focus:bg-white outline-none font-bold text-sm text-black" />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="block text-xs font-bold text-daInfo-dark uppercase tracking-widest">Detailed Scope & Requirements</label>
-              <textarea name="description" required value={formData.description} onChange={handleChange} rows="5" placeholder="Describe the problem, the deliverables, and any specific constraints..." className="w-full p-4 border border-gray-200 bg-gray-50 focus:bg-white focus:border-daInfo-dark outline-none font-medium text-daInfo-dark resize-none" />
+            <div className="space-y-3">
+              <label className="block text-xs font-black text-black uppercase tracking-widest">[04] DETAILED_SCOPE</label>
+              <textarea name="description" required value={formData.description} onChange={handleChange} rows="6" placeholder="LOG PROJECT REQUIREMENTS AND DELIVERABLES..." className="w-full p-5 border-4 border-black bg-gray-50 focus:bg-white outline-none font-bold text-sm text-black resize-none" />
             </div>
           </section>
 
           {/* Logistics */}
-          <section className="space-y-6 pt-6 border-t border-gray-100">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 border-b border-gray-200 pb-2">Logistics & Compensation</h3>
+          <section className="space-y-8">
+            <div className="flex items-center gap-4 mb-4">
+               <div className="h-0.5 bg-black flex-1" />
+               <h3 className="text-xs font-black uppercase tracking-[0.3em] text-black">LOGISTICS_&_FUNDS</h3>
+               <div className="h-0.5 bg-black flex-1" />
+            </div>
             
-            <div className="grid sm:grid-cols-3 gap-6">
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-daInfo-dark uppercase tracking-widest">Min Budget ($)</label>
-                <input type="number" name="budgetMin" required min="1" value={formData.budgetMin} onChange={handleChange} placeholder="50" className="w-full p-4 border border-gray-200 bg-gray-50 focus:bg-white focus:border-daInfo-dark outline-none font-bold text-daInfo-dark" />
+            <div className="grid sm:grid-cols-3 gap-8">
+              <div className="space-y-3">
+                <label className="block text-xs font-black text-black uppercase tracking-widest">[05] MIN_ALLOCATION ($)</label>
+                <input type="number" name="budgetMin" required min="1" value={formData.budgetMin} onChange={handleChange} placeholder="000" className="w-full p-5 border-4 border-black bg-gray-50 focus:bg-white outline-none font-black text-xl text-black" />
               </div>
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-daInfo-dark uppercase tracking-widest">Max Budget ($)</label>
-                <input type="number" name="budgetMax" required min="1" value={formData.budgetMax} onChange={handleChange} placeholder="150" className="w-full p-4 border border-gray-200 bg-gray-50 focus:bg-white focus:border-daInfo-dark outline-none font-bold text-daInfo-dark" />
+              <div className="space-y-3">
+                <label className="block text-xs font-black text-black uppercase tracking-widest">[06] MAX_ALLOCATION ($)</label>
+                <input type="number" name="budgetMax" required min="1" value={formData.budgetMax} onChange={handleChange} placeholder="000" className="w-full p-5 border-4 border-black bg-gray-50 focus:bg-white outline-none font-black text-xl text-black" />
               </div>
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-daInfo-dark uppercase tracking-widest">Expected Duration</label>
-                <input type="text" name="duration" required value={formData.duration} onChange={handleChange} placeholder="e.g. 2 Days, 3 Hours" className="w-full p-4 border border-gray-200 bg-gray-50 focus:bg-white focus:border-daInfo-dark outline-none font-medium text-daInfo-dark" />
+              <div className="space-y-3">
+                <label className="block text-xs font-black text-black uppercase tracking-widest">[07] TARGET_TIMELINE</label>
+                <input type="text" name="duration" required value={formData.duration} onChange={handleChange} placeholder="e.g. 48 HOURS" className="w-full p-5 border-4 border-black bg-gray-50 focus:bg-white outline-none font-bold text-sm text-black" />
               </div>
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-4 mt-4">
-              <label className={`cursor-pointer flex items-center gap-4 p-4 border-2 transition-all group ${formData.isUrgent ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`}>
+            <div className="grid sm:grid-cols-2 gap-6 mt-4">
+              <label className={`cursor-pointer flex items-center gap-6 p-6 border-4 transition-all ${formData.isUrgent ? 'border-red-600 bg-red-50 shadow-[4px_4px_0px_0px_rgba(220,38,38,1)]' : 'border-black hover:bg-gray-50'}`}>
                 <input type="checkbox" name="isUrgent" checked={formData.isUrgent} onChange={handleChange} className="sr-only" />
-                <div className={`w-5 h-5 flex-shrink-0 border-2 rounded-sm flex items-center justify-center transition-colors ${formData.isUrgent ? 'border-red-500 bg-red-500' : 'border-gray-300 group-hover:border-gray-400'}`}>
-                  {formData.isUrgent && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>}
+                <div className={`w-8 h-8 border-4 border-black flex items-center justify-center transition-colors ${formData.isUrgent ? 'bg-red-600' : 'bg-white'}`}>
+                  {formData.isUrgent && <Zap className="w-4 h-4 text-white" />}
                 </div>
                 <div>
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <Clock className={`w-4 h-4 ${formData.isUrgent ? 'text-red-500' : 'text-gray-400'}`} />
-                    <span className={`text-xs font-bold uppercase tracking-widest ${formData.isUrgent ? 'text-red-700' : 'text-gray-500'}`}>Mark as Urgent</span>
-                  </div>
-                  <p className="text-[10px] text-gray-400">Pushes gig to the top of the queue.</p>
+                  <span className={`text-xs font-black uppercase tracking-widest ${formData.isUrgent ? 'text-red-700' : 'text-black'}`}>PRIORITY_OVERRIDE</span>
+                  <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">Status: Urgent Delivery</p>
                 </div>
               </label>
 
-              <label className={`cursor-pointer flex items-center gap-4 p-4 border-2 transition-all group ${formData.isInstantHire ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
+              <label className={`cursor-pointer flex items-center gap-6 p-6 border-4 transition-all ${formData.isInstantHire ? 'border-blue-600 bg-blue-50 shadow-[4px_4px_0px_0px_rgba(37,99,235,1)]' : 'border-black hover:bg-gray-50'}`}>
                 <input type="checkbox" name="isInstantHire" checked={formData.isInstantHire} onChange={handleChange} className="sr-only" />
-                <div className={`w-5 h-5 flex-shrink-0 border-2 rounded-sm flex items-center justify-center transition-colors ${formData.isInstantHire ? 'border-blue-500 bg-blue-500' : 'border-gray-300 group-hover:border-gray-400'}`}>
-                  {formData.isInstantHire && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>}
+                <div className={`w-8 h-8 border-4 border-black flex items-center justify-center transition-colors ${formData.isInstantHire ? 'bg-blue-600' : 'bg-white'}`}>
+                  {formData.isInstantHire && <Target className="w-4 h-4 text-white" />}
                 </div>
                 <div>
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <Zap className={`w-4 h-4 ${formData.isInstantHire ? 'text-blue-500' : 'text-gray-400'}`} />
-                    <span className={`text-xs font-bold uppercase tracking-widest ${formData.isInstantHire ? 'text-blue-700' : 'text-gray-500'}`}>Instant Hire</span>
-                  </div>
-                  <p className="text-[10px] text-gray-400">Allows freelancers to auto-accept.</p>
+                  <span className={`text-xs font-black uppercase tracking-widest ${formData.isInstantHire ? 'text-blue-700' : 'text-black'}`}>INSTANT_LOCK</span>
+                  <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">Status: Auto-Accept Enabled</p>
                 </div>
               </label>
             </div>
           </section>
 
-          <div className="pt-6">
-            <button type="submit" disabled={loading} className="w-full p-6 bg-daInfo-dark hover:bg-black text-white font-bold uppercase tracking-widest shadow-[4px_4px_0px_0px_rgba(200,200,200,1)] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all flex items-center justify-center gap-3">
-               <Briefcase className="w-5 h-5" />
-               {loading ? 'DEPLOYING...' : 'FINAL POST'}
+          <div className="pt-8">
+            <button type="submit" disabled={loading} className="w-full p-8 bg-black text-white font-black text-xl uppercase tracking-[0.2em] transform active:scale-[0.98] transition-all flex items-center justify-center gap-4 hover:bg-daInfo-dark da-shadow-black hover:da-shadow-none translate-x-1 translate-y-1">
+               <Zap className={`w-6 h-6 ${loading ? 'animate-spin' : ''}`} />
+               {loading ? 'INITIALIZING_DEPLOYMENT...' : 'DEPLOY_GIG'}
+               <ArrowRight className="w-6 h-6" />
             </button>
           </div>
         </form>

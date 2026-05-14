@@ -64,6 +64,20 @@ const userSchema = new mongoose.Schema({
     linkedin: { type: String, default: '' },
     website: { type: String, default: '' },
   },
+  guild: {
+    type: String,
+    default: '',
+    trim: true,
+  },
+  traits: [{
+    type: String,
+    trim: true,
+  }],
+  verifiedSkills: [{
+    skill: { type: String, trim: true },
+    level: { type: Number, default: 0 },
+    verifiedAt: { type: Date, default: Date.now },
+  }],
 }, { timestamps: true });
 
 // Hash password before saving

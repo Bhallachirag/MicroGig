@@ -4,12 +4,7 @@ const Job = require('../models/Job');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 
-// Initialize Razorpay
-// Note: These will be placeholders until user provides real keys in .env
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder_id',
-  key_secret: process.env.RAZORPAY_KEY_SECRET || 'placeholder_secret'
-});
+// Razorpay initialization happens inside the controllers to prevent server crash on boot if keys are missing.
 
 // @desc    Create a Razorpay Order
 // @route   POST /api/payments/order
@@ -18,6 +13,15 @@ exports.createOrder = async (req, res, next) => {
   try {
     const { jobId } = req.body;
     const job = await Job.findById(jobId);
+
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+      return res.status(500).json({ message: 'Payment gateway configuration missing. Please contact support.' });
+    }
+
+    const razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET
+    });
 
     if (!job) return res.status(404).json({ message: 'Job not found' });
     
@@ -43,7 +47,7 @@ exports.createOrder = async (req, res, next) => {
     const order = await razorpay.orders.create(options);
     res.json({
       ...order,
-      keyId: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder_id'
+      keyId: process.env.RAZORPAY_KEY_ID
     });
   } catch (err) {
     next(err);
@@ -62,9 +66,13 @@ exports.verifyPayment = async (req, res, next) => {
       jobId 
     } = req.body;
 
+    if (!process.env.RAZORPAY_KEY_SECRET) {
+      return res.status(500).json({ message: 'Payment gateway configuration missing. Please contact support.' });
+    }
+
     const body = razorpay_order_id + "|" + razorpay_payment_id;
     const expectedSignature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || 'placeholder_secret')
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
       .update(body.toString())
       .digest('hex');
 

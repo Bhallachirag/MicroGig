@@ -335,23 +335,29 @@ exports.payFreelancer = async (req, res, next) => {
 // POST /api/jobs/generate
 exports.generateJobData = async (req, res, next) => {
   try {
-    const { title } = req.body;
-    if (!title) return res.status(400).json({ message: 'Title is required for AI generation' });
+    const { title, notes } = req.body;
+    if (!title && !notes) return res.status(400).json({ message: 'Missing input for AI generation' });
 
     if (!process.env.GEMINI_API_KEY) {
       return res.status(503).json({ message: 'AI Service currently unavailable (API Key missing)' });
     }
 
     const prompt = `
-      Act as a high-end recruitment consultant for a micro-gig marketplace. 
-      Generate professional job post details for the title: "${title}".
+      Act as a high-end Recruitment Architect for a high-velocity micro-gig marketplace. 
+      Your goal is to take ${notes ? 'raw, messy notes' : 'a short title'} and produce a professional, "High-Signal" job posting.
+      
+      INPUT:
+      ${notes ? `RAW NOTES: "${notes}"` : `TITLE: "${title}"`}
       
       Requirements for response:
-      - Description: 2-3 detailed paragraphs focusing on scope, precision, and final deliverables.
+      - Title: Refine it to be catchy and professional (max 50 chars).
+      - Description: 2-3 detailed paragraphs focusing on scope, precision, and final deliverables. Make it sound high-stakes.
+      - Category: One of ['Technology & IT', 'Creative & Design', 'Writing & Translation', 'Marketing & Sales', 'Business & Operations', 'Lifestyle & Health', 'Photography & Media', 'Events & Hospitality', 'Other Services'].
       - Skills: 5 relevant technical/soft skills.
       - Duration: A realistic micro-gig timeline (e.g., '2 Days', '5 Hours', '1 Week').
+      - Budget Suggestions: A realistic Min and Max budget in USD (numeric values only).
       
-      Return ONLY a JSON object with these keys: "description", "skills" (array of strings), and "duration".
+      Return ONLY a JSON object with these exact keys: "title", "description", "category", "skills" (array), "duration", "budgetMin", "budgetMax".
       Do not include any markdown fences or extra talk.
     `;
 
@@ -378,8 +384,8 @@ exports.generateJobData = async (req, res, next) => {
     console.error('[AI GENERATE ERROR]:', err.message);
     res.status(500).json({ 
       message: 'AI failed to generate content.',
-      error: err.message, // Expose for debugging
-      suggestion: 'Please check if your GEMINI_API_KEY is correctly set in Vercel environment variables.'
+      error: err.message,
+      suggestion: 'Please check if your GEMINI_API_KEY is correctly set.'
     });
   }
 };

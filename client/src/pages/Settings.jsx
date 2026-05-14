@@ -9,13 +9,8 @@ export default function Settings() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(null);
   
-  const [formData, setFormData] = useState({
-    name: '',
-    bio: '',
-    skills: '',
-    github: '',
-    linkedin: '',
-    website: ''
+    website: '',
+    guild: ''
   });
 
   useEffect(() => {
@@ -26,7 +21,8 @@ export default function Settings() {
         skills: user.skills ? user.skills.join(', ') : '',
         github: user.portfolio?.github || '',
         linkedin: user.portfolio?.linkedin || '',
-        website: user.portfolio?.website || ''
+        website: user.portfolio?.website || '',
+        guild: user.guild || ''
       });
     }
   }, [user]);
@@ -52,7 +48,8 @@ export default function Settings() {
             github: formData.github,
             linkedin: formData.linkedin,
             website: formData.website
-          }
+          },
+          guild: formData.guild
         })
       });
 
@@ -104,7 +101,7 @@ export default function Settings() {
                <h2 className="text-xl font-black text-daInfo-dark uppercase tracking-tight">Core Identity</h2>
             </div>
             
-            <div className="grid md:grid-cols-2 gap-8">
+            <div className="grid md:grid-cols-3 gap-8 mt-8">
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Public Name</label>
                 <input 
@@ -115,7 +112,17 @@ export default function Settings() {
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Email Address (Read-only)</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Guild / College Tribe</label>
+                <input 
+                  type="text" 
+                  value={formData.guild}
+                  onChange={(e) => setFormData(p => ({ ...p, guild: e.target.value }))}
+                  placeholder="e.g. IIT Delhi, Mumbai Creatives"
+                  className="w-full p-4 border-2 border-black focus:bg-daInfo-blue/5 focus:border-daInfo-blue outline-none font-bold text-daInfo-dark transition-all"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Identifier (Read-only)</label>
                 <input 
                   type="text" 
                   value={user.email}

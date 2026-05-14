@@ -62,6 +62,8 @@ const jobSchema = new mongoose.Schema({
   submission: {
     content: { type: String, default: '' },
     submittedAt: { type: Date },
+    aiVerificationScore: { type: Number, default: null },
+    aiVerificationNotes: { type: String, default: '' },
   },
   isUrgent: {
     type: Boolean,

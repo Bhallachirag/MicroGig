@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/ui/Toast';
+import GuildLeaderboard from '../components/dashboard/GuildLeaderboard';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -17,6 +18,7 @@ export default function Dashboard() {
   const [submissionModal, setSubmissionModal] = useState({ shown: false, jobId: null, content: '' });
   const [reviewModal, setReviewModal] = useState({ shown: false, jobId: null, revieweeId: null, rating: 5, comment: '', title: '' });
   const [workViewModal, setWorkViewModal] = useState({ shown: false, content: '', title: '' });
+  const [paymentModal, setPaymentModal] = useState({ shown: false, jobId: null, freelancerId: null, title: '' });
   const [actionLoading, setActionLoading] = useState(false);
 
   // Load Razorpay Script
@@ -45,6 +47,7 @@ export default function Dashboard() {
           setData(json);
         }
       } catch (err) {
+        toast.error('Failed to load dashboard data.');
         console.error(err);
       } finally {
         setLoading(false);
@@ -66,7 +69,10 @@ export default function Dashboard() {
         setSubmissionModal({ shown: false, jobId: null, content: '' });
         window.location.reload();
       }
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+      toast.error('Failed to submit work.');
+      console.error(err); 
+    }
     finally { setActionLoading(false); }
   };
 
@@ -79,14 +85,20 @@ export default function Dashboard() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) window.location.reload();
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+      toast.error('Failed to accept work.');
+      console.error(err); 
+    }
     finally { setActionLoading(false); }
   };
 
-  const handlePay = async (jobId, freelancerId) => {
-    // Payment confirmation is implicit — user clicked the Pay button
-    
+  const handlePay = (jobId, freelancerId, title) => {
+    setPaymentModal({ shown: true, jobId, freelancerId, title });
+  };
+
+  const executePayment = async () => {
     setActionLoading(true);
+    const { jobId } = paymentModal;
     try {
       const token = localStorage.getItem('microgig_token');
       
@@ -154,7 +166,7 @@ export default function Dashboard() {
           email: user.email
         },
         theme: {
-           color: '#0000FF'
+           color: '#FF1493'
         }
       };
 
@@ -165,7 +177,10 @@ export default function Dashboard() {
       console.error(err); 
       toast.error(`Payment Error: ${err.message}`);
     }
-    finally { setActionLoading(false); }
+    finally { 
+      setActionLoading(false); 
+      setPaymentModal({ shown: false, jobId: null, freelancerId: null, title: '' });
+    }
   };
 
   const handleReviewClient = (jobId, clientId, jobTitle) => {
@@ -190,7 +205,10 @@ export default function Dashboard() {
         setReviewModal({ shown: false, jobId: null, revieweeId: null, rating: 5, comment: '', title: '' });
         window.location.reload();
       }
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+      toast.error('Failed to post review.');
+      console.error(err); 
+    }
     finally { setActionLoading(false); }
   };
 
@@ -270,14 +288,42 @@ export default function Dashboard() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        {isClient ? (
-          <ClientDashboardContent {...dashboardProps} />
-        ) : (
-          <FreelancerDashboardContent 
-            profile={profile} 
-            {...dashboardProps} 
-          />
-        )}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+          <div className="lg:col-span-2">
+            {isClient ? (
+              <ClientDashboardContent {...dashboardProps} />
+            ) : (
+              <FreelancerDashboardContent 
+                profile={profile} 
+                {...dashboardProps} 
+              />
+            )}
+          </div>
+          
+          <aside className="space-y-12">
+            <GuildLeaderboard />
+            
+            {/* TRIBAL STATUS CARD */}
+            <div className="border-4 border-black p-8 bg-daInfo-dark text-white da-shadow-black relative overflow-hidden group">
+               <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
+                  <Target className="w-32 h-32" />
+               </div>
+               <h3 className="text-xs font-black uppercase tracking-[0.3em] mb-6">Your_Tribal_Rank</h3>
+               <div className="space-y-4 relative z-10">
+                  <div className="flex justify-between items-end">
+                     <span className="text-4xl font-black tracking-tighter">#{profile.completedGigs > 10 ? 'TOP_TIER' : 'RECRUIT'}</span>
+                     <Award className="w-8 h-8 text-yellow-400" />
+                  </div>
+                  <div className="h-2 bg-white/20 border border-white/10">
+                     <div className="h-full bg-yellow-400" style={{ width: `${Math.min((profile.completedGigs || 0) * 10, 100)}%` }} />
+                  </div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/60">
+                     {profile.guild ? `PROUD_MEMBER_OF: ${profile.guild}` : 'NO_GUILD_DETECTED. JOIN_IN_SETTINGS.'}
+                  </p>
+               </div>
+            </div>
+          </aside>
+        </div>
       </div>
 
       {/* SHARED SUBMIT MODAL */}
@@ -362,9 +408,45 @@ export default function Dashboard() {
              <button 
                onClick={() => setWorkViewModal({ shown: false, content: '', title: '' })}
                className="w-full py-4 border-2 border-black font-black uppercase tracking-widest hover:bg-gray-50 transition-colors"
-             >
+              >
                DONE REVIEWING
              </button>
+          </div>
+        </div>
+      )}
+
+      {/* PAYMENT CONFIRMATION MODAL */}
+      {paymentModal.shown && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-md" onClick={() => setPaymentModal({ shown: false, jobId: null, freelancerId: null, title: '' })} />
+          <div className="relative bg-white w-full max-w-lg border-2 border-black da-shadow-black p-8 animate-scale-in text-center">
+             <div className="flex justify-center mb-6">
+                <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center border-2 border-black">
+                  <DollarSign className="w-8 h-8 text-white" />
+                </div>
+             </div>
+             <h3 className="text-2xl font-black text-daInfo-dark uppercase tracking-tight mb-2">AUTHORIZE PAYMENT</h3>
+             <p className="text-gray-500 text-sm font-bold mb-6">
+               You are about to securely transfer funds to the freelancer for: <br/>
+               <span className="text-black font-black mt-2 inline-block">"{paymentModal.title}"</span>
+             </p>
+             
+             <div className="flex flex-col gap-4">
+               <button 
+                 onClick={executePayment}
+                 disabled={actionLoading}
+                 className="w-full py-4 bg-daInfo-pink text-white font-black uppercase tracking-widest hover:bg-pink-600 transition-colors da-shadow-pink"
+               >
+                 {actionLoading ? 'INITIALIZING...' : 'PROCEED TO SECURE CHECKOUT'}
+               </button>
+               <button 
+                 onClick={() => setPaymentModal({ shown: false, jobId: null, freelancerId: null, title: '' })}
+                 disabled={actionLoading}
+                 className="w-full py-4 border-2 border-gray-200 font-bold uppercase tracking-widest hover:bg-gray-50"
+               >
+                 CANCEL
+               </button>
+             </div>
           </div>
         </div>
       )}
@@ -509,7 +591,7 @@ function ClientDashboardContent({ data, formatDate, actionLoading, handleAccept,
                            </button>
 
                            <button 
-                             onClick={() => handlePay(job._id, job.applicants?.[0]?.id)}
+                             onClick={() => handlePay(job._id, job.applicants?.[0]?.id, job.title)}
                              disabled={actionLoading}
                              className="flex flex-col items-center justify-center p-6 border-2 border-gray-200 hover:border-daInfo-pink hover:bg-pink-50 transition-all group"
                            >
@@ -528,7 +610,7 @@ function ClientDashboardContent({ data, formatDate, actionLoading, handleAccept,
                           <div className="mt-8 border-t border-gray-100 pt-8">
                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mb-4 text-center">Shortcut Action</p>
                              <button 
-                               onClick={() => handlePay(job._id, job.applicants?.[0]?.id)}
+                               onClick={() => handlePay(job._id, job.applicants?.[0]?.id, job.title)}
                                disabled={actionLoading}
                                className="w-full py-4 bg-black text-white font-black uppercase tracking-widest hover:bg-daInfo-dark transition-all da-shadow-black"
                              >
