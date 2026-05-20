@@ -46,6 +46,7 @@ const FreelancerAnimation = () => {
           {[0, 1, 2, 3, 4, 5].map((i) => (
             <motion.rect
               key={`line1-${i}`} x="440" y={215 + i*14} width={30 + i*10} height="6" rx="3" fill={i % 2 === 0 ? "#3498db" : "#2ecc71"}
+              initial={{ width: 30 + i*10 }}
               animate={{ width: [30 + i*10, 80 - i*5, 30 + i*10] }}
               transition={{ duration: 2 + i*0.5, repeat: Infinity, ease: "easeInOut" }}
             />
@@ -53,6 +54,7 @@ const FreelancerAnimation = () => {
           {[0, 1, 2, 3].map((i) => (
             <motion.rect
               key={`line2-${i}`} x="440" y={222 + i*14} width={20 + i*5} height="6" rx="3" fill="#ecf0f1"
+              initial={{ width: 20 + i*5 }}
               animate={{ width: [20 + i*5, 50 + i*8, 20 + i*5] }}
               transition={{ duration: 1.5 + i*0.3, repeat: Infinity, ease: "easeInOut" }}
             />
@@ -79,11 +81,13 @@ const FreelancerAnimation = () => {
         {/* Animated Arms / Hands */}
         <motion.path
           d="M 380 280 Q 340 340 330 360" stroke="#152238" strokeWidth="22" strokeLinecap="round" fill="none"
+          initial={{ d: "M 380 280 Q 340 340 330 360" }}
           animate={{ d: ["M 380 280 Q 340 340 330 360", "M 380 280 Q 345 330 335 370"] }}
           transition={{ duration: 0.2, repeat: Infinity, repeatType: "mirror" }}
         />
         <motion.path
           d="M 400 280 Q 380 340 360 360" stroke="#0e1726" strokeWidth="22" strokeLinecap="round" fill="none"
+          initial={{ d: "M 400 280 Q 380 340 360 360" }}
           animate={{ d: ["M 400 280 Q 380 340 360 360", "M 400 280 Q 385 335 370 365"] }}
           transition={{ duration: 0.25, repeat: Infinity, repeatType: "mirror", delay: 0.1 }}
         />
