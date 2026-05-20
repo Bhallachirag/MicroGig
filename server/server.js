@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const dotenv = require('dotenv');
 const helmet = require('helmet');
 const compression = require('compression');
@@ -42,6 +43,7 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+app.use(cookieParser());
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));

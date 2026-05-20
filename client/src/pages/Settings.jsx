@@ -8,7 +8,12 @@ export default function Settings() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(null);
-  
+  const [formData, setFormData] = useState({
+    name: '',
+    bio: '',
+    skills: '',
+    github: '',
+    linkedin: '',
     website: '',
     guild: ''
   });

@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import api from '../lib/api';
 
 const AuthContext = createContext(null);
 
@@ -6,80 +7,67 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Check backend for stored user token
+  // Check backend for stored user via cookie
   useEffect(() => {
     const checkAuth = async () => {
-      const token = localStorage.getItem('microgig_token');
-      if (token) {
-        try {
-          const res = await fetch('/api/auth/me', {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          if (res.ok) {
-            const data = await res.json();
-            setUser(data);
-          } else {
-            localStorage.removeItem('microgig_token');
-            setUser(null);
-          }
-        } catch (err) {
-          console.error(err);
-          localStorage.removeItem('microgig_token');
-          setUser(null);
-        }
+      try {
+        const { data } = await api.get('/auth/me');
+        setUser(data);
+      } catch (err) {
+        console.error(err);
+        setUser(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     checkAuth();
   }, []);
 
   const login = async (email, password) => {
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Login failed');
-
-      localStorage.setItem('microgig_token', data.token);
+      const { data } = await api.post('/auth/login', { email, password });
       setUser(data.user);
       return { success: true, user: data.user };
     } catch (err) {
-      return { success: false, error: err.message };
+      return { success: false, error: err.response?.data?.message || err.message };
     }
   };
 
   const signup = async (name, email, password, role = 'freelancer', dob) => {
     try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, role, dob })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Signup failed');
-
-      localStorage.setItem('microgig_token', data.token);
+      const { data } = await api.post('/auth/register', { name, email, password, role, dob });
       setUser(data.user);
       return { success: true, user: data.user };
     } catch (err) {
-      return { success: false, error: err.message };
+      return { success: false, error: err.response?.data?.message || err.message };
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await api.get('/auth/logout');
+    } catch(err) {
+      console.error(err);
+    }
     setUser(null);
-    localStorage.removeItem('microgig_token');
   };
 
   const updateUser = (updates) => {
     setUser({ ...user, ...updates });
   };
 
+  const googleLogin = async (token, role = 'freelancer') => {
+    try {
+      const { data } = await api.post('/auth/google', { token, role });
+      setUser(data.user);
+      return { success: true, user: data.user };
+    } catch (err) {
+      return { success: false, error: err.response?.data?.message || err.message };
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, setUser, loading, login, signup, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, setUser, loading, login, signup, logout, updateUser, googleLogin }}>
       {children}
     </AuthContext.Provider>
   );
@@ -90,3 +78,4 @@ export const useAuth = () => {
   if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 };
+

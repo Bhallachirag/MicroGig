@@ -245,8 +245,53 @@ exports.submitWork = async (req, res, next) => {
       return res.status(403).json({ message: 'Not authorized to submit for this job' });
     }
 
+    let aiVerificationScore = null;
+    let aiVerificationNotes = '';
+
+    if (process.env.GEMINI_API_KEY) {
+      try {
+        const prompt = `
+          Act as an AI Escrow Verifier for a micro-gig marketplace.
+          Your task is to review the freelancer's submission and compare it against the original job scope.
+
+          JOB DATA:
+          Title: ${job.title}
+          Description: ${job.description}
+          Required Skills: ${job.skills.join(', ')}
+
+          FREELANCER SUBMISSION:
+          ${content}
+
+          Return ONLY a JSON object in this exact format:
+          {
+            "score": <number 0-100 representing how well the submission meets the job data>,
+            "notes": "<1-2 sentence summary of what was achieved and what might be missing>"
+          }
+        `;
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+        
+        const start = text.indexOf('{');
+        const end = text.lastIndexOf('}');
+        if (start !== -1 && end !== -1) {
+          const jsonStr = text.substring(start, end + 1).replace(/[\u0000-\u001F\u007F-\u009F]/g, "").trim();
+          const aiResult = JSON.parse(jsonStr);
+          aiVerificationScore = aiResult.score != null ? Number(aiResult.score) : null;
+          aiVerificationNotes = aiResult.notes || '';
+        }
+      } catch (aiErr) {
+        console.error('[AI ESCROW] Verification Error (non-fatal):', aiErr.message);
+      }
+    }
+
     job.status = 'needs-review';
-    job.submission = { content, submittedAt: Date.now() };
+    job.submission = { 
+      content, 
+      submittedAt: Date.now(),
+      aiVerificationScore,
+      aiVerificationNotes
+    };
     await job.save();
 
     // Notify Client
@@ -302,9 +347,9 @@ exports.payFreelancer = async (req, res, next) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
-    // Allow paying from either needs-review or accepted
-    if (job.status !== 'needs-review' && job.status !== 'accepted') {
-      return res.status(400).json({ message: 'Job status invalid for payment' });
+    // Strictly require the job to be 'accepted' before allowing payment
+    if (job.status !== 'accepted') {
+      return res.status(400).json({ message: 'Job must be reviewed and accepted before payment can proceed' });
     }
 
     job.status = 'completed';

@@ -4,10 +4,21 @@ const protect = require('../middleware/auth');
 
 const { upload } = require('../config/cloudinary');
 
+const { body } = require('express-validator');
+const { validateRequest } = require('../middleware/validation');
+
 router.get('/', getJobs);
 router.post('/generate', protect, generateJobData);
 router.get('/:id', getJobById);
-router.post('/', protect, createJob);
+router.post('/', protect, [
+  body('title').trim().notEmpty().withMessage('Job title is required'),
+  body('description').trim().notEmpty().withMessage('Description is required'),
+  body('budget.min').isNumeric().withMessage('Minimum budget must be a number'),
+  body('budget.max').isNumeric().withMessage('Maximum budget must be a number'),
+  body('deadline').isISO8601().toDate().withMessage('Valid deadline date is required'),
+  body('skills').isArray().withMessage('Skills must be an array'),
+  validateRequest
+], createJob);
 router.put('/:id', protect, updateJob);
 router.post('/:id/apply', protect, (req, res, next) => {
   upload.single('attachment')(req, res, (err) => {
