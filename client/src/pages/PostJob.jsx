@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Briefcase, AlertCircle, Clock, Zap } from 'lucide-react';
-import AIAssistant from '../components/jobs/AIAssistant';
+import { Briefcase, AlertCircle, Clock, Zap, Sparkles, Send, X, Loader } from 'lucide-react';
 
 const categories = [
   'Technology & IT', 'Creative & Design', 'Writing & Translation',
@@ -46,6 +45,37 @@ export default function PostJob() {
       isUrgent: false,
       isInstantHire: false
     });
+    setShowAI(false);
+    setAiInput('');
+  };
+
+  const [showAI, setShowAI] = useState(false);
+  const [aiInput, setAiInput] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
+
+  const handleAIGenerate = async () => {
+    if (!aiInput.trim()) return;
+    setAiLoading(true);
+    setAiError('');
+    try {
+      const token = localStorage.getItem('microgig_token');
+      const res = await fetch('/api/jobs/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ notes: aiInput })
+      });
+      const data = await res.json();
+      if (res.ok && data && data.title) {
+        onDraftGenerated(data);
+      } else {
+        setAiError(data.message || 'AI could not generate a draft.');
+      }
+    } catch (err) {
+      setAiError('Failed to connect to AI service.');
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -107,9 +137,6 @@ export default function PostJob() {
           <p className="text-gray-500 text-lg">Define the scope, set the budget, and source top talent instantly.</p>
         </div>
 
-        {/* AI Assistant */}
-        <AIAssistant onDraftGenerated={onDraftGenerated} />
-
         <form onSubmit={handleSubmit} className="bg-white border border-gray-200 shadow-[8px_8px_0px_0px_rgba(10,10,10,1)] p-8 sm:p-12 space-y-8">
           
           {error && (
@@ -124,7 +151,49 @@ export default function PostJob() {
             <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 border-b border-gray-200 pb-2">Core Parameters</h3>
             
             <div className="space-y-2">
-              <label className="block text-xs font-bold text-daInfo-dark uppercase tracking-widest">Project Title</label>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-daInfo-dark uppercase tracking-widest">Project Title</label>
+                <button
+                  type="button"
+                  onClick={() => setShowAI(!showAI)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-full transition-all ${
+                    showAI 
+                      ? 'bg-purple-100 text-purple-700 border border-purple-300' 
+                      : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  {showAI ? 'Close AI' : 'AI Fill'}
+                </button>
+              </div>
+
+              {showAI && (
+                <div className="bg-purple-50 border border-purple-200 p-4 space-y-3 animate-[fadeIn_0.2s_ease-out]">
+                  <p className="text-xs text-purple-600 font-medium">Describe your project idea and AI will fill the entire form for you.</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={aiInput}
+                      onChange={(e) => setAiInput(e.target.value)}
+                      disabled={aiLoading}
+                      placeholder="e.g. need a landing page for my cookie shop, high contrast..."
+                      className="flex-1 px-4 py-3 border border-purple-200 bg-white text-sm text-daInfo-dark outline-none focus:border-purple-400 placeholder:text-gray-400"
+                      onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAIGenerate())}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAIGenerate}
+                      disabled={aiLoading || !aiInput.trim()}
+                      className="px-4 py-3 bg-purple-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      {aiLoading ? <Loader className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                      {aiLoading ? 'Generating...' : 'Generate'}
+                    </button>
+                  </div>
+                  {aiError && <p className="text-xs text-red-600 font-medium">{aiError}</p>}
+                </div>
+              )}
+
               <input type="text" name="title" required value={formData.title} onChange={handleChange} placeholder="e.g. Build a REST API with Express" className="w-full p-4 border border-gray-200 bg-gray-50 focus:bg-white focus:border-daInfo-dark outline-none font-medium text-daInfo-dark" />
             </div>
 
